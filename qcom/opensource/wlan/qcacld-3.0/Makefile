@@ -31,6 +31,7 @@ KBUILD_OPTIONS += $(KBUILD_EXTRA) # Extra config if any
 endif
 
 KBUILD_OPTIONS += KBUILD_EXTRA_SYMBOLS=$(OUT_DIR)/../sm6225-modules/qcom/opensource/wlan/platform/Module.symvers
+KBUILD_OPTIONS += WLAN_PLATFORM_ROOT=$(KERNEL_SRC)/$(M)/../platform
 
 all:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
