@@ -181,6 +181,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
+	c_bridge->display->panel->panel_status = true;
 
 	if (!bridge) {
 		DSI_ERR("Invalid params\n");
@@ -253,6 +254,7 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 		return;
 	}
 	display = c_bridge->display;
+	display->panel->panel_status = true;
 
 	rc = dsi_display_post_enable(display);
 	if (rc)
@@ -284,6 +286,7 @@ static void dsi_bridge_disable(struct drm_bridge *bridge)
 		return;
 	}
 	display = c_bridge->display;
+	display->panel->panel_status = false;
 
 	if (display)
 		display->enabled = false;
@@ -320,6 +323,8 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	}
 
 	display = c_bridge->display;
+
+	display->panel->panel_status = false;
 
 	SDE_ATRACE_BEGIN("dsi_bridge_post_disable");
 	SDE_ATRACE_BEGIN("dsi_display_disable");

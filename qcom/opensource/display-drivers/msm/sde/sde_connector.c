@@ -34,6 +34,10 @@
 #define SDE_ERROR_CONN(c, fmt, ...) SDE_ERROR("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
 
+#if IS_ENABLED(CONFIG_FACTORY_BUILD)
+#define DISABLE_ESD
+#endif
+
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
 	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
@@ -2727,7 +2731,48 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 	return 0;
 }
 
-static void _sde_connector_report_panel_dead(struct sde_connector *conn,
+#ifndef DISABLE_ESD
+/* BSP.LCM  modify to add esd irq */
+static irqreturn_t esd_err_irq_handle_m(int irq, void *data)
+{
+	struct sde_connector *c_conn = data;
+	struct dsi_display *dsi_display = (struct dsi_display *)(c_conn->display);
+	struct drm_event event;
+	bool panel_on = false;
+	char err_irq_gpio_status = 1;
+	bool panel_status = false;
+	panel_status = dsi_display->panel->panel_status;
+
+	if (!c_conn && !c_conn->display) {
+		SDE_ERROR("not able to get connector object\n");
+		return IRQ_HANDLED;
+	}
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		struct dsi_display * dsi_display = (struct dsi_display *)(c_conn->display);
+		if (dsi_display && dsi_display->panel && dsi_display->panel->esd_config.esd_err_irq_gpio_m > 0) {
+			panel_on = dsi_display->panel->panel_initialized;
+			err_irq_gpio_status = gpio_get_value(dsi_display->panel->esd_config.esd_err_irq_gpio_m);
+		}
+	}
+
+	if (panel_status && panel_on && (c_conn->panel_dead == false) && err_irq_gpio_status == 0) {
+		SDE_ERROR("esd check irq report PANEL_DEAD conn_id: %d enc_id: %d, panel_status[%d], panel_on[%d]\n",
+			c_conn->base.base.id, c_conn->encoder->base.id, panel_status, panel_on);
+		c_conn->panel_dead = true;
+		event.type = DRM_EVENT_PANEL_DEAD;
+		event.length = sizeof(bool);
+		msm_mode_object_event_notify(&c_conn->base.base,
+			c_conn->base.dev, &event, (u8 *)&c_conn->panel_dead);
+		sde_encoder_display_failure_notification(c_conn->encoder, false);
+		pr_info("enable panel esd \n");
+	}
+	return IRQ_HANDLED;
+}
+/*end modify*/
+#endif
+
+void _sde_connector_report_panel_dead(struct sde_connector *conn,
 	bool skip_pre_kickoff)
 {
 	struct drm_event event;
@@ -3351,6 +3396,9 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct sde_connector *c_conn = NULL;
 	struct msm_display_info display_info;
 	int rc;
+#ifndef DISABLE_ESD
+	struct dsi_display *dsi_display;
+#endif
 
 	if (!dev || !dev->dev_private || !encoder) {
 		SDE_ERROR("invalid argument(s), dev %pK, enc %pK\n",
@@ -3456,6 +3504,29 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			goto error_cleanup_fence;
 		}
 	}
+
+#ifndef DISABLE_ESD
+/* modify to add esd irq */
+	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+			dsi_display = (struct dsi_display *)(display);
+			/* register esd irq and enable it after panel enabled */
+		if (dsi_display && dsi_display->panel &&
+			dsi_display->panel->esd_config.esd_err_irq_gpio_m > 0) {
+			pr_info("%s: dsi_display is success of esd\n", __func__);
+			rc = request_threaded_irq(dsi_display->panel->esd_config.esd_err_irq_m,
+							NULL, esd_err_irq_handle_m,
+							dsi_display->panel->esd_config.esd_err_irq_flags_m,
+							"esd_err_irq_m", c_conn);
+			if (rc < 0) {
+				pr_info("%s: request irq %d failed\n", __func__, dsi_display->panel->esd_config.esd_err_irq_m);
+					dsi_display->panel->esd_config.esd_err_irq_m = 0;
+			} else {
+				pr_info("%s: Request esd irq succeed!\n", __func__);
+			}
+		}
+	}
+/*end modify*/
+#endif
 
 	rc = sde_connector_get_info(&c_conn->base, &display_info);
 	if (!rc && (connector_type == DRM_MODE_CONNECTOR_DSI) &&

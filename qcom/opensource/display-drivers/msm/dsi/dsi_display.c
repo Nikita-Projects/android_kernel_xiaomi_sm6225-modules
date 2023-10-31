@@ -23,6 +23,15 @@
 #include "sde_dbg.h"
 #include "dsi_parser.h"
 
+/* LQ.LCM - 2023.2.7 - transplant mi disp from zeus start */
+#include "mi_disp_feature.h"
+#include "mi_dsi_display.h"
+#include "mi_disp_print.h"
+#include "mi_disp_lhbm.h"
+#include "mi_panel_id.h"
+#include "mi_dsi_panel_count.h"
+/* 2022.2.7 - end modify */
+
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 
@@ -38,7 +47,13 @@
 
 #define SEC_PANEL_NAME_MAX_LEN  256
 
+/* 2023/2/21 LQ LCM modify to switch fps */
+extern void dsi_set_panel_fps_cmd(struct dsi_panel *panel,
+			 struct dsi_display_mode *adj_mode);
+/* 2023/2/21 End modify*/
+
 u8 dbgfs_tx_cmd_buf[SZ_4K];
+char lockdown_info[128];
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY] = {
@@ -52,6 +67,45 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{.compatible = "qcom,dsi-display"},
 	{}
 };
+
+/* LQ.LCM - 2023.2.7 - transplant mi disp from zeus start */
+char *mi_dsi_display_get_cmdline_panel_info(struct dsi_display *display)
+{
+	char *buffer = NULL, *buffer_dup = NULL;
+	char *pname = NULL;
+	char *panel_info = NULL;
+	int index = DSI_PRIMARY;
+	if (!display) {
+		DISP_ERROR("Invalid params\n");
+		return NULL;
+	}
+	if (!strcmp(display->display_type, "primary")) {
+		index = DSI_PRIMARY;
+	} else if (!strcmp(display->display_type, "secondary")) {
+		index = DSI_SECONDARY;
+	} else {
+		DISP_ERROR("Invalid display_type params\n");
+		return NULL;
+	}
+	buffer = kstrdup(boot_displays[index].boot_param, GFP_KERNEL);
+	if (!buffer)
+		return NULL;
+	buffer_dup = buffer;
+	buffer = strrchr(buffer, ',');
+	if (buffer && *buffer) {
+		pname = ++buffer;
+	} else {
+		goto exit;
+	}
+	buffer = strrchr(pname, ':');
+	if (buffer)
+		*buffer = '\0';
+	panel_info = kstrdup(pname, GFP_KERNEL);
+exit:
+	kfree(buffer_dup);
+	return panel_info;
+}
+/* 2023.2.7 - end modify */
 
 bool is_skip_op_required(struct dsi_display *display)
 {
@@ -1037,7 +1091,7 @@ release_panel_lock:
 	return rc;
 }
 
-static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
+int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 		bool *state)
 {
 	struct dsi_display_ctrl *ctrl;
@@ -1056,7 +1110,7 @@ static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 	return rc;
 }
 
-static int dsi_display_cmd_rx(struct dsi_display *display,
+int dsi_display_cmd_rx(struct dsi_display *display,
 			      struct dsi_cmd_desc *cmd)
 {
 	struct dsi_display_ctrl *m_ctrl = NULL;
@@ -5891,7 +5945,15 @@ static int dsi_display_bind(struct device *dev,
 
 
 	msm_register_vm_event(master, dev, &vm_event_ops, (void *)display);
-
+/* LQ.LCM - 2023.2.7 - build mi disp file system when kernel bind panel */
+	rc = mi_disp_feature_attach_display(display,
+			mi_get_disp_id(display->display_type), MI_INTF_DSI);
+	if (rc) {
+		DISP_ERROR("failed to attach %s display(%s intf)\n",
+			get_disp_id_name(mi_get_disp_id(display->display_type)),
+			get_disp_intf_type_name(MI_INTF_DSI));
+	}
+/* 2023.2.7 - end modify */
 	goto error;
 
 error_host_deinit:
@@ -7866,6 +7928,14 @@ int dsi_display_set_mode(struct dsi_display *display,
 		goto error;
 	}
 
+/* 2023/2/21 LQ LCM modify to switch fps */
+	if (display->panel->panel_initialized && (timing.refresh_rate != display->panel->dsi_refresh_flag) )
+	{
+		DSI_INFO("dsi_display_set_mode -> dsi_set_panel_fps_cmd +\n");
+		dsi_set_panel_fps_cmd(display->panel, &adj_mode);
+	}
+/* 2023/2/21 End modify*/
+
 	DSI_INFO("mdp_transfer_time=%d, hactive=%d, vactive=%d, fps=%d, clk_rate=%llu\n",
 			adj_mode.priv_info->mdp_transfer_time_us,
 			timing.h_active, timing.v_active, timing.refresh_rate,
@@ -9136,3 +9206,5 @@ module_param_string(dsi_display1, dsi_display_secondary, MAX_CMDLINE_PARAM_LEN,
 								0600);
 MODULE_PARM_DESC(dsi_display1,
 	"msm_drm.dsi_display1=<display node>:<configX> where <display node> is 'secondary dsi display node name' and <configX> where x represents index in the topology list");
+module_param_string(dsi_display_lockdown, lockdown_info, MAX_CMDLINE_PARAM_LEN, 0600);
+MODULE_PARM_DESC(lockdown, "display lockdown info");
