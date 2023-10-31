@@ -46,6 +46,9 @@
 #include "sde_vm.h"
 #include "sde_fence.h"
 
+#include "dsi_panel.h"
+#include "dsi_display.h"
+
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -4647,6 +4650,8 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 	struct sde_encoder_phys *phys;
 	struct sde_kms *sde_kms;
 	unsigned int i;
+	struct sde_connector *sde_conn;
+	struct dsi_display *display;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -4654,6 +4659,13 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 	}
 	SDE_ATRACE_BEGIN("encoder_kickoff");
 	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	sde_conn = to_sde_connector(sde_enc->cur_master->connector);
+	if (!sde_conn)
+		SDE_ERROR("fps sde_encoder_kickoff sde_conn is null\n");
+	display = sde_conn->display;
+	if (!display)
+		SDE_ERROR("fps sde_encoder_kickoff display is null\n");
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
@@ -4668,6 +4680,13 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 		}
 
 		SDE_EVT32(DRMID(drm_enc), i, SDE_EVTLOG_FUNC_CASE1);
+	}
+
+	if (display->panel->panel_initialized &&
+			display->panel->cur_mode->timing.refresh_rate != display->panel->dsi_refresh_flag )
+	{
+		DSI_INFO("sde_encoder_kickoff -> dsi_set_panel_fps_cmd +\n");
+		dsi_set_panel_fps_cmd(display->panel, display->panel->cur_mode);
 	}
 
 	/* update txq for any output retire hw-fence (wb-path) */
