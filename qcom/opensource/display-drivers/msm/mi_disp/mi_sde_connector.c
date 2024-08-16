@@ -120,6 +120,7 @@ int mi_sde_connector_register_esd_irq(struct sde_connector *c_conn)
 	return rc;
 }
 
+#if MI_DISP_DEBUGFS_ENABLE
 int mi_sde_connector_debugfs_esd_sw_trigger(void *display)
 {
 	struct dsi_display *dsi_display = (struct dsi_display *)display;
@@ -182,6 +183,7 @@ int mi_sde_connector_debugfs_esd_sw_trigger(void *display)
 
 	return 0;
 }
+#endif
 
 int mi_sde_connector_check_layer_flags(struct drm_connector *connector)
 {
