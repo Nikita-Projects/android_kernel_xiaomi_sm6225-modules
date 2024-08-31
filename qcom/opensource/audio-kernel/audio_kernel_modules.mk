@@ -97,6 +97,9 @@ AUDIO_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/q6_notifier_dlkm.ko\
 	$(KERNEL_MODULES_OUT)/va_macro_dlkm.ko \
 	$(KERNEL_MODULES_OUT)/tx_macro_dlkm.ko \
 	$(KERNEL_MODULES_OUT)/rx_macro_dlkm.ko \
+	$(KERNEL_MODULES_OUT)/fs1815_dlkm.ko \
+	$(KERNEL_MODULES_OUT)/aw87xxx_dlkm.ko \
+	$(KERNEL_MODULES_OUT)/sipa_dlkm.ko \
 	$(KERNEL_MODULES_OUT)/wsa883x_dlkm.ko \
 	$(KERNEL_MODULES_OUT)/pmw5100-spmi_dlkm.ko \
 	$(KERNEL_MODULES_OUT)/besbev_dlkm.ko \
