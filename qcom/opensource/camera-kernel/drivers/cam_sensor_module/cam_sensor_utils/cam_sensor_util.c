@@ -8,9 +8,19 @@
 #include "cam_sensor_util.h"
 #include "cam_mem_mgr.h"
 #include "cam_res_mgr_api.h"
+/* hzk add for camera power up bengin*/
+#include "wl2866d.h"
+#define MAX_DELAY_TIME 65420
+#define DELAY_SETP 1000
+/* hzk add for camera power up end*/
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
 #define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
+
+/* hzk add for distinguish front i&&ii bengin */
+#define CAM_SENSOR_FRONT_MIN_VOLTAGE 1050000
+#define CAM_SENSOR_FRONT_MAX_VOLTAGE 1200000
+/* hzk add for distinguish front i&&ii end */
 
 #define VALIDATE_VOLTAGE(min, max, config_val) ((config_val) && \
 	(config_val >= min) && (config_val <= max))
