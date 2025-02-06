@@ -430,7 +430,8 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	if(lcd_reset_keep_high){
 		dsi_panel_reset(panel);
 	} else{
-		if(!strcmp(panel->name, "m84 35 03 0b video mode fhdp dsi panel")){
+		if(!strcmp(panel->name, "m84 35 03 0b video mode fhdp dsi panel") ||
+			!strcmp(panel->name, "m7 38 0c 0b video mode fhdp dsi panel")){
 			gpio_set_value( panel->reset_config.reset_gpio, 0);
 			msleep(4);
 			bkl_power_switch(true);
@@ -477,15 +478,14 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 {
 	int rc = 0;
 
-#if CONFIG_TOUCHSCREEN_COMMON
 		if (lcd_reset_keep_high) {
 			DSI_INFO("TP gesture ,lcd_reset_keep_hight\n");
 			return rc;
 		}else {
 			DSI_INFO("lcd_reset_keep_low\n");
         }
-#endif 
-	if (!strcmp(panel->name, "m84 36 02 0a video mode fhdp dsi panel"))
+	if (!strcmp(panel->name, "m84 36 02 0a video mode fhdp dsi panel")
+		|| !strcmp(panel->name, "m7 38 0c 0a video mode fhdp dsi panel")
 	{
 		bkl_power_switch(false);
 		msleep(1);
@@ -531,7 +531,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
         }
 
 	/*use default panel bias voltage off if no special requirements*/
-	if(strcmp(panel->name, "m84 36 02 0a video mode fhdp dsi panel") && strcmp(panel->name, "m84 35 03 0b video mode fhdp dsi panel")){
+	if(strcmp(panel->name, "m84 36 02 0a video mode fhdp dsi panel") && strcmp(panel->name, "m84 35 03 0b video mode fhdp dsi panel") || strcmp(panel->name, "m7 38 0c 0a video mode fhdp dsi panel") && strcmp(panel->name, "m7 38 0c 0b video mode fhdp dsi panel")){
 		DSI_ERR("msm_drm use default panel off");
 		bkl_power_switch(false);
 	}
